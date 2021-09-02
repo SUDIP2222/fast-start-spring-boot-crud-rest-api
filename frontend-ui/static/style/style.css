@@ -1,0 +1,35 @@
+.container-app {
+    
+}
+
+h1 {
+    padding: 30px;
+    font-family: "Bookman Old Style", fantasy;
+}
+
+#add-user {
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.color {
+    background-color: floralwhite;
+}
+
+.user-content {
+    padding: 10px;
+}
+
+.static-info {
+    font-size: 16px;
+    font-family: "Book Antiqua", serif;
+    font-weight: bold;
+    color: brown;
+}
+
+.user-info {
+    font-family: Bahnschrift sans-serif;
+    font-size: 17px;
+    font-weight: bold;
+    margin-left: 5px;
+}
