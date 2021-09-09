@@ -1,8 +1,12 @@
-package com.crud.faststartspringbootcrudrestapi;
+package com.crud.faststartspringbootcrudrestapi.domain;
 
 import lombok.*;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import javax.persistence.*;
+import java.util.ArrayList;
+import java.util.Collection;
 
 @Entity
 @Builder
@@ -28,6 +32,10 @@ public class User {
     @Column(name = "last_name")
     private String lastName;
 
-    @Column
+    private String password;
+
     private String country;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    private Collection<Role> roles = new ArrayList<>();
 }
