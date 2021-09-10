@@ -38,4 +38,8 @@ public class User {
 
     @ManyToMany(fetch = FetchType.EAGER)
     private Collection<Role> roles = new ArrayList<>();
+
+    public String getUsername() {
+        return this.email;
+    }
 }
