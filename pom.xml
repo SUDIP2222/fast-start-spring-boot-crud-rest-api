@@ -74,6 +74,8 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+<!--                    if change path for main class need to change mainClass maven config ans set path to main class-->
+<!--                    <mainClass>com.crud.faststartspringbootcrudrestapi.FastStartSpringBootCrudRestApiApplication</mainClass>-->
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
