@@ -5,6 +5,7 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.crud.faststartspringbootcrudrestapi.domain.Role;
+import com.crud.faststartspringbootcrudrestapi.error.AuthenticationErrorException;
 import com.crud.faststartspringbootcrudrestapi.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,15 +45,38 @@ public class JwtUtils {
     @Value("${jwt.token.refresh.expireInMs}")
     private Long jwtRefreshTokenExpireInMs;
 
-    public Authentication authenticateUser(String username, String password) {
+    public Authentication authenticateUser(String username, String password) throws AuthenticationErrorException {
         log.info("Init authenticate user");
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, password);
-        log.info(authenticationToken.getName());
-        return authenticationManager.authenticate(authenticationToken);
+        UsernamePasswordAuthenticationToken authenticationToken;
+        try{
+            authenticationToken = new UsernamePasswordAuthenticationToken(username, password);
+            log.info("Authentication username: {}", authenticationToken.getName());
+            return authenticationManager.authenticate(authenticationToken);
+        }catch (Exception e) {
+            log.error("authentication error : {}", e.getMessage());
+            throw new AuthenticationErrorException(e.getMessage());
+        }
+    }
+
+    public JwtTokenResponse getJwtTokenResponse(String username, String password) throws AuthenticationErrorException {
+        Authentication authentication;
+        try {
+            authentication = authenticateUser(username, password);
+        }catch (Exception e) {
+            log.error("Authentication error:" + e.getMessage());
+            throw new AuthenticationErrorException(e.getMessage());
+        }
+
+        return JwtTokenResponse.builder()
+                .accessToken(generateAccessToken(authentication))
+                .refreshToken(generateRefreshToken(authentication))
+                .build();
     }
 
     public String generateAccessToken(Authentication authentication) {
+        log.info("Authentication username: {}", authentication.getName());
         User user = (User) authentication.getPrincipal();
+        log.info("User Principal username {}", user.getUsername());
         Algorithm algorithm = Algorithm.HMAC256(jwtTokenKey.getBytes());
         return JWT.create()
                 .withSubject(user.getUsername())
