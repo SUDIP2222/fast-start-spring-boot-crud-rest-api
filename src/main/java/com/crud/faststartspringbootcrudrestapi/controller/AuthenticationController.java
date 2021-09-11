@@ -7,11 +7,15 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.crud.faststartspringbootcrudrestapi.domain.Role;
 import com.crud.faststartspringbootcrudrestapi.domain.User;
 import com.crud.faststartspringbootcrudrestapi.domain.dto.LoginDto;
+import com.crud.faststartspringbootcrudrestapi.security.JwtTokenResponse;
+import com.crud.faststartspringbootcrudrestapi.security.JwtUtils;
 import com.crud.faststartspringbootcrudrestapi.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,13 +35,18 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 @Slf4j
 public class AuthenticationController {
 
-//    private final AuthenticationManager authenticationManager;
     private final UserService userService;
+    private final JwtUtils jwtUtils;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginDto loginDto) {
-        log.info(loginDto.getUsername());
-        return ResponseEntity.ok().body("login");
+        Authentication authentication = jwtUtils.authenticateUser(loginDto.getUsername(), loginDto.getPassword());
+        JwtTokenResponse jwtTokenResponse = JwtTokenResponse.builder()
+                .accessToken(jwtUtils.generateAccessToken(authentication))
+                .refreshToken(jwtUtils.generateRefreshToken(authentication))
+                .build();
+
+        return ResponseEntity.ok().body(jwtTokenResponse);
     }
 
     @GetMapping("/refresh")
@@ -47,12 +56,14 @@ public class AuthenticationController {
         log.info(authorizationHeader);
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer_")) {
             try {
+
                 String refresh_token = authorizationHeader.substring("Bearer_".length());
                 Algorithm algorithm = Algorithm.HMAC256("secret".getBytes());
                 JWTVerifier verifier = JWT.require(algorithm).build();
                 DecodedJWT decodedJWT = verifier.verify(refresh_token);
                 String username = decodedJWT.getSubject();
                 User user = userService.findByEmail(username);
+
                 String accessToken = JWT.create()
                         .withSubject(user.getUsername())
                         .withExpiresAt(new Date(System.currentTimeMillis() + 10 * 60 * 100))

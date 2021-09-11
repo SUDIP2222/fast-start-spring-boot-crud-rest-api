@@ -1,0 +1,86 @@
+package com.crud.faststartspringbootcrudrestapi.security;
+
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTVerifier;
+import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.interfaces.DecodedJWT;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.stereotype.Component;
+
+import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Date;
+import java.util.stream.Collectors;
+
+import static org.springframework.http.HttpHeaders.AUTHORIZATION;
+
+@Component
+@Slf4j
+@RequiredArgsConstructor
+public class JwtUtils {
+
+    private final AuthenticationManager authenticationManager;
+
+    @Value("${jwt.token.key}")
+    private String jwtTokenKey;
+    @Value("${jwt.token.type}")
+    private String jwtTokenType;
+    @Value("${jwt.token.expireInMs}")
+    private Long jwtTokenExpireInMs;
+    @Value("${jwt.token.refresh.expireInMs}")
+    private Long jwtRefreshTokenExpireInMs;
+
+    public Authentication authenticateUser(String username, String password) {
+        log.info("Init authenticate user");
+        log.info(jwtTokenKey);
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, password);
+        log.info(authenticationToken.getName());
+        return authenticationManager.authenticate(authenticationToken);
+    }
+
+    public String generateAccessToken(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        Algorithm algorithm = Algorithm.HMAC256(jwtTokenKey.getBytes());
+        return JWT.create()
+                .withSubject(user.getUsername())
+                .withClaim("roles", user.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList()))
+                .withExpiresAt(new Date(System.currentTimeMillis() + jwtTokenExpireInMs))
+                .sign(algorithm);
+    }
+
+    public String generateRefreshToken(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        Algorithm algorithm = Algorithm.HMAC256(jwtTokenKey.getBytes());
+        return JWT.create()
+                .withSubject(user.getUsername())
+                .withExpiresAt(new Date(System.currentTimeMillis() + jwtRefreshTokenExpireInMs))
+                .sign(algorithm);
+    }
+
+    public void validateJwtToken(String authorizationHeader) {
+        if (authorizationHeader.startsWith(jwtTokenType)) {
+            String token = authorizationHeader.substring(jwtTokenType.length());
+            Algorithm algorithm = Algorithm.HMAC256(jwtTokenKey.getBytes());
+            JWTVerifier verifier = JWT.require(algorithm).build();
+            DecodedJWT decodedJWT = verifier.verify(token);
+            String username = decodedJWT.getSubject();
+            String[] roles = decodedJWT.getClaim("roles").asArray(String.class);
+            Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
+            Arrays.stream(roles).forEach(role -> authorities.add(new SimpleGrantedAuthority(role)));
+            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, null, authorities);
+            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+        }
+    }
+}
