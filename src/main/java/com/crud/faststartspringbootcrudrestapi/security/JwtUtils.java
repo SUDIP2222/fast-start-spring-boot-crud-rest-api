@@ -4,9 +4,10 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.crud.faststartspringbootcrudrestapi.domain.Role;
+import com.crud.faststartspringbootcrudrestapi.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -32,6 +33,7 @@ import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 public class JwtUtils {
 
     private final AuthenticationManager authenticationManager;
+    private final UserService userService;
 
     @Value("${jwt.token.key}")
     private String jwtTokenKey;
@@ -44,7 +46,6 @@ public class JwtUtils {
 
     public Authentication authenticateUser(String username, String password) {
         log.info("Init authenticate user");
-        log.info(jwtTokenKey);
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, password);
         log.info(authenticationToken.getName());
         return authenticationManager.authenticate(authenticationToken);
@@ -82,5 +83,28 @@ public class JwtUtils {
             UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
         }
+    }
+
+    public JwtTokenResponse validateRefreshJwtToken(HttpServletRequest request) {
+        String authorizationHeader = request.getHeader(AUTHORIZATION);
+        String refreshToken = authorizationHeader.substring(jwtTokenType.length());
+
+        Algorithm algorithm = Algorithm.HMAC256(jwtTokenKey.getBytes());
+        JWTVerifier verifier = JWT.require(algorithm).build();
+        DecodedJWT decodedJWT = verifier.verify(refreshToken);
+        String username = decodedJWT.getSubject();
+        com.crud.faststartspringbootcrudrestapi.domain.User user = userService.findByEmail(username);
+
+        String accessToken = JWT.create()
+                .withSubject(user.getUsername())
+                .withExpiresAt(new Date(System.currentTimeMillis() + jwtTokenExpireInMs))
+                .withIssuer(request.getRequestURL().toString())
+                .withClaim("roles", user.getRoles().stream().map(Role::getName).collect(Collectors.toList()))
+                .sign(algorithm);
+
+        return JwtTokenResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
     }
 }
